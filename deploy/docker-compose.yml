@@ -1,0 +1,58 @@
+version: "3.9"
+services:
+  app:
+    build: ..
+    image: chat-datastore-mcp:local
+    container_name: chat-datastore-app
+    depends_on:
+      - redis
+      - mongo
+      - otel-collector
+      - clickhouse
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/chatdb
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    ports:
+      - "8080:8080"
+    networks: [stack]
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports: ["6379:6379"]
+    networks: [stack]
+
+  mongo:
+    image: mongo:6
+    container_name: mongo
+    ports: ["27017:27017"]
+    networks: [stack]
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    container_name: clickhouse
+    environment:
+      - CLICKHOUSE_DB=otel
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # Native
+    networks: [stack]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.104.0
+    container_name: otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    depends_on:
+      - clickhouse
+    networks: [stack]
+
+networks:
+  stack: {}

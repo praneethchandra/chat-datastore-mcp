@@ -1,0 +1,47 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+
+processors:
+  batch:
+    timeout: 2s
+    send_batch_size: 8192
+
+exporters:
+  clickhouse:
+    # Native protocol
+    endpoint: tcp://clickhouse:9000?dial_timeout=10s
+    database: otel
+    create_schema: true
+    ttl: 72h
+    async_insert: true
+    compression: lz4
+    logs_table_name: otel_logs
+    traces_table_name: otel_traces
+    # metrics tables (optional fine-grain)
+    metrics_tables:
+      gauge:
+        name: otel_metrics_gauge
+      sum:
+        name: otel_metrics_sum
+      histogram:
+        name: otel_metrics_histogram
+      summary:
+        name: otel_metrics_summary
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]

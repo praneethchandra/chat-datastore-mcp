@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+spring:
+  data:
+    mongodb:
+      # Use embedded MongoDB for local development
+      uri: mongodb://localhost:27017/chatdb
+    redis:
+      # Use local Redis for development
+      host: localhost
+      port: 6379
+
+  ai:
+    mcp:
+      server:
+        enabled: true
+        type: ASYNC
+        name: chat-datastore
+        version: 1.0.0
+        # SSE endpoints for WebFlux transport
+        sse-endpoint: /sse
+        sse-message-endpoint: /mcp/message
+        capabilities:
+          tool: true
+          resource: false
+          prompt: false
+          completion: false
+        stdio: false
+
+app:
+  policies:
+    allowedCollections:
+      - sessions
+      - interactions
+      - kvshadow
+      - events
