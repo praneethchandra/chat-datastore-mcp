@@ -24,4 +24,10 @@ public class ToolRegistrationConfig {
                 .toolObjects(kvTools, storeTools, capTools)
                 .build();
     }
+
+    // Register tools for MCP server
+    @Bean
+    public Object[] mcpToolObjects() {
+        return new Object[]{kvTools, storeTools, capTools};
+    }
 }

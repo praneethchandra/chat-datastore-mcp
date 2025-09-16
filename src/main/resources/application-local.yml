@@ -4,8 +4,8 @@ server:
 spring:
   data:
     mongodb:
-      # Use embedded MongoDB for local development
-      uri: mongodb://localhost:27017/chatdb
+      # Use MongoDB with authentication for local development
+      uri: mongodb://admin:adminpass@localhost:27017/chatdb?authSource=admin
     redis:
       # Use local Redis for development
       host: localhost

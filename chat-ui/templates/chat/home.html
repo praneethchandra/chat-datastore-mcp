@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - Chat Datastore MCP{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8">
+        <div class="text-center mb-5">
+            <h1 class="display-4">
+                <i class="fas fa-robot text-primary"></i>
+                Chat Datastore MCP
+            </h1>
+            <p class="lead">
+                AI-powered chat interface with Model Context Protocol (MCP) integration
+            </p>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-comments fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Start Chatting</h5>
+                        <p class="card-text">
+                            Begin a conversation with AI models that can access your datastore through MCP tools.
+                        </p>
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'chat:new_chat' %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> New Chat
+                            </a>
+                        {% else %}
+                            <a href="{% url 'chat:quick_login' %}" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt"></i> Login to Start
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-history fa-3x text-success mb-3"></i>
+                        <h5 class="card-title">Chat History</h5>
+                        <p class="card-text">
+                            View and continue your previous conversations with full message history.
+                        </p>
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'chat:chat_list' %}" class="btn btn-success">
+                                <i class="fas fa-list"></i> View Sessions
+                            </a>
+                        {% else %}
+                            <a href="{% url 'chat:quick_login' %}" class="btn btn-success">
+                                <i class="fas fa-sign-in-alt"></i> Login to View
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-tools"></i> Available MCP Tools
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-key text-warning"></i> Key-Value Operations</h6>
+                                <ul class="list-unstyled ms-3">
+                                    <li><code>kv_get</code> - Get value for a key</li>
+                                    <li><code>kv_set</code> - Set key-value pairs</li>
+                                    <li><code>kv_mget</code> - Get multiple keys</li>
+                                    <li><code>kv_del</code> - Delete keys</li>
+                                    <li><code>kv_scan</code> - Scan keys by prefix</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-database text-info"></i> Store Operations</h6>
+                                <ul class="list-unstyled ms-3">
+                                    <li><code>store_find</code> - Query documents</li>
+                                    <li><code>store_aggregate</code> - Run aggregations</li>
+                                    <li><code>session_appendEvent</code> - Log events</li>
+                                    <li><code>capabilities_list</code> - List tools</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>How it works:</strong> The AI can automatically use these MCP tools to store and retrieve information, 
+                            making conversations more persistent and contextual.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-brain"></i> AI Models Supported
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fab fa-openai text-success me-2"></i>
+                                    <strong>OpenAI Models</strong>
+                                </div>
+                                <ul class="list-unstyled ms-4">
+                                    <li>GPT-4</li>
+                                    <li>GPT-3.5 Turbo</li>
+                                    <li>GPT-4 Turbo</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-server text-primary me-2"></i>
+                                    <strong>Local Models (Ollama)</strong>
+                                </div>
+                                <ul class="list-unstyled ms-4">
+                                    <li>Llama 2</li>
+                                    <li>Code Llama</li>
+                                    <li>Mistral</li>
+                                    <li>And more...</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

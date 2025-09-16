@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Chat Datastore MCP{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header text-center">
+                <h4>
+                    <i class="fas fa-sign-in-alt text-primary"></i>
+                    Quick Login
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Demo Mode:</strong> This is a simplified login for demonstration purposes. 
+                    Enter any username to get started.
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">
+                            <i class="fas fa-user"></i> Username
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="username" 
+                               name="username" 
+                               value="demo" 
+                               placeholder="Enter username"
+                               required>
+                        <div class="form-text">
+                            Default: "demo" - or enter your own username
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt"></i> Login
+                        </button>
+                    </div>
+                </form>
+
+                <hr>
+
+                <div class="text-center">
+                    <small class="text-muted">
+                        <i class="fas fa-shield-alt"></i>
+                        This demo uses simplified authentication. In production, 
+                        implement proper user authentication and authorization.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-question-circle"></i> What happens after login?
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success"></i>
+                        Access to chat interface with AI models
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success"></i>
+                        Persistent chat sessions and message history
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success"></i>
+                        AI can use MCP tools to store/retrieve data
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success"></i>
+                        Customizable AI model preferences
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,473 @@
+{% extends 'base.html' %}
+
+{% block title %}Chat - {{ session.get_title }} - Chat Datastore MCP{% endblock %}
+
+{% block content %}
+<div class="container-fluid h-100">
+    <div class="row h-100">
+        <!-- Sidebar with session info and settings -->
+        <div class="col-md-3 sidebar p-0">
+            <div class="p-3 border-bottom">
+                <h6 class="mb-0">
+                    <i class="fas fa-comment-dots text-primary"></i>
+                    {{ session.get_title|truncatechars:30 }}
+                </h6>
+                <small class="text-muted">
+                    <i class="fas fa-calendar"></i>
+                    {{ session.created_at|date:"M d, Y H:i" }}
+                </small>
+            </div>
+
+            <!-- AI Model Settings -->
+            <div class="p-3 border-bottom">
+                <h6 class="mb-2">
+                    <i class="fas fa-brain text-success"></i>
+                    AI Settings
+                </h6>
+                <div class="mb-2">
+                    <label class="form-label small">Provider:</label>
+                    <select class="form-select form-select-sm" id="aiProvider">
+                        <option value="openai" {% if preferences.preferred_ai_provider == 'openai' %}selected{% endif %}>
+                            OpenAI
+                        </option>
+                        <option value="ollama" {% if preferences.preferred_ai_provider == 'ollama' %}selected{% endif %}>
+                            Ollama (Local)
+                        </option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Model:</label>
+                    <select class="form-select form-select-sm" id="aiModel">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Temperature:</label>
+                    <input type="range" class="form-range" id="temperature" 
+                           min="0" max="1" step="0.1" value="{{ preferences.temperature }}">
+                    <small class="text-muted">
+                        <span id="temperatureValue">{{ preferences.temperature }}</span>
+                    </small>
+                </div>
+            </div>
+
+            <!-- MCP Tools -->
+            <div class="p-3 border-bottom">
+                <h6 class="mb-2">
+                    <i class="fas fa-tools text-warning"></i>
+                    MCP Tools
+                    <button class="btn btn-sm btn-outline-secondary ms-1" 
+                            onclick="refreshCapabilities()" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </h6>
+                <div id="mcpCapabilities" class="small">
+                    <div class="text-muted">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Session Stats -->
+            <div class="p-3">
+                <h6 class="mb-2">
+                    <i class="fas fa-chart-bar text-info"></i>
+                    Session Stats
+                </h6>
+                <div class="small">
+                    <div class="mb-1">
+                        <i class="fas fa-message"></i>
+                        Messages: <span id="messageCount">{{ messages.count }}</span>
+                    </div>
+                    <div class="mb-1">
+                        <i class="fas fa-cogs"></i>
+                        MCP Operations: <span id="mcpOpCount">0</span>
+                    </div>
+                    <div class="mb-1">
+                        <i class="fas fa-coins"></i>
+                        Tokens Used: <span id="tokenCount">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main chat area -->
+        <div class="col-md-9 d-flex flex-column p-0">
+            <!-- Chat header -->
+            <div class="bg-light p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">{{ session.get_title }}</h5>
+                        <small class="text-muted">
+                            AI Assistant with MCP Tools
+                        </small>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary me-2" 
+                                onclick="exportChat()" title="Export Chat">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <a href="{% url 'chat:chat_list' %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-list"></i> All Sessions
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages container -->
+            <div class="chat-container flex-grow-1" id="messagesContainer">
+                {% for message in messages %}
+                    <div class="message {{ message.role }}" data-message-id="{{ message.id }}">
+                        <div class="message-content">
+                            {{ message.content|linebreaks }}
+                        </div>
+                        <div class="message-meta">
+                            <span class="timestamp">{{ message.timestamp|date:"H:i" }}</span>
+                            {% if message.model_used %}
+                                <span class="model">{{ message.model_used }}</span>
+                            {% endif %}
+                            {% if message.tokens_used %}
+                                <span class="tokens">{{ message.tokens_used }} tokens</span>
+                            {% endif %}
+                            {% if message.status == 'error' %}
+                                <span class="text-danger">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    Error
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+                
+                <!-- Typing indicator -->
+                <div class="typing-indicator" id="typingIndicator">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    AI is thinking...
+                </div>
+            </div>
+
+            <!-- Message input -->
+            <div class="p-3 border-top bg-light">
+                <form id="messageForm" class="d-flex">
+                    {% csrf_token %}
+                    <div class="flex-grow-1 me-2">
+                        <textarea class="form-control" 
+                                  id="messageInput" 
+                                  placeholder="Type your message... (Shift+Enter for new line, Enter to send)"
+                                  rows="2"
+                                  required></textarea>
+                    </div>
+                    <div class="d-flex flex-column">
+                        <button type="submit" class="btn btn-primary mb-1" id="sendButton">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                onclick="clearChat()" title="Clear Chat">
+                            <i class="fas fa-broom"></i>
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        The AI can use MCP tools to store and retrieve information automatically.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MCP Operation Details Modal -->
+<div class="modal fade" id="mcpModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-cogs"></i>
+                    MCP Operation Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="mcpModalBody">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const sessionId = '{{ session.id }}';
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+// AI Model configurations
+const modelConfigs = {
+    openai: ['gpt-5', 'gpt-4o'],
+    ollama: ['gemma3', 'gpt-oss', 'llama3.2', 'deepseek-r1']
+};
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    initializeModelSelector();
+    loadMCPCapabilities();
+    updateStats();
+    scrollToBottom();
+    
+    // Auto-resize textarea
+    const messageInput = document.getElementById('messageInput');
+    messageInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+    
+    // Handle Enter key
+    messageInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('messageForm').dispatchEvent(new Event('submit'));
+        }
+    });
+    
+    // Temperature slider
+    const tempSlider = document.getElementById('temperature');
+    const tempValue = document.getElementById('temperatureValue');
+    tempSlider.addEventListener('input', function() {
+        tempValue.textContent = this.value;
+        updatePreferences();
+    });
+    
+    // AI provider change
+    document.getElementById('aiProvider').addEventListener('change', function() {
+        initializeModelSelector();
+        updatePreferences();
+    });
+    
+    document.getElementById('aiModel').addEventListener('change', updatePreferences);
+});
+
+// Initialize model selector based on provider
+function initializeModelSelector() {
+    const provider = document.getElementById('aiProvider').value;
+    const modelSelect = document.getElementById('aiModel');
+    
+    modelSelect.innerHTML = '';
+    modelConfigs[provider].forEach(model => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = model;
+        modelSelect.appendChild(option);
+    });
+    
+    // Set default selection
+    if (provider === 'openai') {
+        modelSelect.value = '{{ preferences.openai_model }}' || 'gpt-3.5-turbo';
+    } else {
+        modelSelect.value = '{{ preferences.ollama_model }}' || 'llama2';
+    }
+}
+
+// Handle message form submission
+document.getElementById('messageForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const messageInput = document.getElementById('messageInput');
+    const message = messageInput.value.trim();
+    
+    if (!message) return;
+    
+    // Disable input and show typing indicator
+    messageInput.disabled = true;
+    document.getElementById('sendButton').disabled = true;
+    document.getElementById('typingIndicator').style.display = 'block';
+    
+    // Add user message to chat immediately
+    addMessageToChat('user', message);
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
+    
+    // Send message to server
+    fetch(`/api/sessions/${sessionId}/send/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: message })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Add assistant response
+            addMessageToChat('assistant', data.assistant_message.content, data.assistant_message);
+            updateStats();
+        } else {
+            addMessageToChat('error', 'Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        addMessageToChat('error', 'Network error occurred');
+    })
+    .finally(() => {
+        // Re-enable input
+        messageInput.disabled = false;
+        document.getElementById('sendButton').disabled = false;
+        document.getElementById('typingIndicator').style.display = 'none';
+        messageInput.focus();
+    });
+});
+
+// Add message to chat UI
+function addMessageToChat(role, content, metadata = {}) {
+    const container = document.getElementById('messagesContainer');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${role}`;
+    
+    let metaInfo = '';
+    if (metadata.timestamp) {
+        const time = new Date(metadata.timestamp).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        metaInfo += `<span class="timestamp">${time}</span>`;
+    }
+    if (metadata.model_used) {
+        metaInfo += `<span class="model">${metadata.model_used}</span>`;
+    }
+    if (metadata.tokens_used) {
+        metaInfo += `<span class="tokens">${metadata.tokens_used} tokens</span>`;
+    }
+    
+    messageDiv.innerHTML = `
+        <div class="message-content">${content.replace(/\n/g, '<br>')}</div>
+        <div class="message-meta">${metaInfo}</div>
+    `;
+    
+    // Insert before typing indicator
+    const typingIndicator = document.getElementById('typingIndicator');
+    container.insertBefore(messageDiv, typingIndicator);
+    
+    scrollToBottom();
+}
+
+// Scroll to bottom of chat
+function scrollToBottom() {
+    const container = document.getElementById('messagesContainer');
+    container.scrollTop = container.scrollHeight;
+}
+
+// Load MCP capabilities
+function loadMCPCapabilities() {
+    fetch('/api/mcp/capabilities/')
+    .then(response => response.json())
+    .then(data => {
+        const container = document.getElementById('mcpCapabilities');
+        if (data.tools && data.tools.length > 0) {
+            container.innerHTML = data.tools.map(tool => 
+                `<div class="mb-1">
+                    <code>${tool.name}</code>
+                    <small class="text-muted d-block">${tool.description}</small>
+                </div>`
+            ).join('');
+        } else {
+            container.innerHTML = '<div class="text-warning">No tools available</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading capabilities:', error);
+        document.getElementById('mcpCapabilities').innerHTML = 
+            '<div class="text-danger">Error loading tools</div>';
+    });
+}
+
+// Refresh capabilities
+function refreshCapabilities() {
+    document.getElementById('mcpCapabilities').innerHTML = 
+        '<div class="text-muted">Loading...</div>';
+    loadMCPCapabilities();
+}
+
+// Update user preferences
+function updatePreferences() {
+    const preferences = {
+        preferred_ai_provider: document.getElementById('aiProvider').value,
+        temperature: parseFloat(document.getElementById('temperature').value)
+    };
+    
+    const provider = preferences.preferred_ai_provider;
+    if (provider === 'openai') {
+        preferences.openai_model = document.getElementById('aiModel').value;
+    } else {
+        preferences.ollama_model = document.getElementById('aiModel').value;
+    }
+    
+    fetch('/api/preferences/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(preferences)
+    })
+    .catch(error => console.error('Error updating preferences:', error));
+}
+
+// Update session statistics
+function updateStats() {
+    // Update message count
+    const messageCount = document.querySelectorAll('.message:not(.typing-indicator)').length;
+    document.getElementById('messageCount').textContent = messageCount;
+    
+    // Load MCP operations count
+    fetch(`/api/sessions/${sessionId}/operations/`)
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('mcpOpCount').textContent = data.operations.length;
+    })
+    .catch(error => console.error('Error loading operations:', error));
+    
+    // Calculate total tokens (from visible messages)
+    let totalTokens = 0;
+    document.querySelectorAll('.message .tokens').forEach(el => {
+        const tokens = parseInt(el.textContent.match(/\d+/));
+        if (!isNaN(tokens)) totalTokens += tokens;
+    });
+    document.getElementById('tokenCount').textContent = totalTokens;
+}
+
+// Export chat
+function exportChat() {
+    const messages = [];
+    document.querySelectorAll('.message:not(.typing-indicator)').forEach(msg => {
+        const role = msg.classList.contains('user') ? 'user' : 'assistant';
+        const content = msg.querySelector('.message-content').textContent;
+        messages.push({ role, content });
+    });
+    
+    const exportData = {
+        session_id: sessionId,
+        title: '{{ session.get_title }}',
+        created_at: '{{ session.created_at|date:"c" }}',
+        messages: messages
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], 
+                         { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-${sessionId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Clear chat (placeholder - would need server endpoint)
+function clearChat() {
+    if (confirm('Are you sure you want to clear this chat? This action cannot be undone.')) {
+        // This would need a server endpoint to actually clear the chat
+        alert('Clear chat functionality would be implemented with a server endpoint');
+    }
+}
+</script>
+{% endblock %}

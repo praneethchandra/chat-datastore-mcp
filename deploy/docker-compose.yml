@@ -39,7 +39,7 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: adminpass
-      MONGO_INITDB_DATABASE: ollama_tools
+      MONGO_INITDB_DATABASE: chat-datastore
     volumes:
       - mongodb_data:/data/db
       - ./docker/mongodb/init:/docker-entrypoint-initdb.d
