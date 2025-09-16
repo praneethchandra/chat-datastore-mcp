@@ -1,0 +1,535 @@
+{
+  "info": {
+    "name": "Chat Datastore MCP API",
+    "description": "Complete API collection for testing the Chat Datastore MCP Server including SSE endpoints, MCP protocol methods, KV operations, store operations, and health checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Status",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Actuator Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "MCP Protocol",
+      "item": [
+        {
+          "name": "Get SSE Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Extract session ID from SSE response",
+                  "const responseText = pm.response.text();",
+                  "const sessionMatch = responseText.match(/sessionId=([a-f0-9-]+)/);",
+                  "if (sessionMatch) {",
+                  "    pm.collectionVariables.set('sessionId', sessionMatch[1]);",
+                  "    console.log('Session ID set to:', sessionMatch[1]);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sse",
+              "host": ["{{baseUrl}}"],
+              "path": ["sse"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MCP Initialize",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"initialize\",\n  \"params\": {\n    \"protocolVersion\": \"2024-11-05\",\n    \"capabilities\": {},\n    \"clientInfo\": {\n      \"name\": \"postman-client\",\n      \"version\": \"1.0.0\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Tools",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/list\",\n  \"params\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Capabilities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mcp/capabilities",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "capabilities"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "KV Operations",
+      "item": [
+        {
+          "name": "KV Set",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"kv_set\",\n    \"arguments\": {\n      \"key\": \"user:{{$randomUUID}}\",\n      \"value\": \"{{$randomFirstName}}\",\n      \"ttlSec\": 3600,\n      \"sessionId\": \"session-{{$randomUUID}}\",\n      \"interactionId\": \"interaction-{{$randomUUID}}\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "KV Get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"kv_get\",\n    \"arguments\": {\n      \"key\": \"user:test-key\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "KV Multiple Get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"kv_mget\",\n    \"arguments\": {\n      \"keys\": [\"key1\", \"key2\", \"key3\"]\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "KV Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"kv_scan\",\n    \"arguments\": {\n      \"prefix\": \"user:\",\n      \"limit\": 50\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "KV TTL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"kv_ttl\",\n    \"arguments\": {\n      \"key\": \"user:test-key\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "KV Delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"kv_del\",\n    \"arguments\": {\n      \"key\": \"user:test-key\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Store Operations",
+      "item": [
+        {
+          "name": "Store Find Sessions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"store_find\",\n    \"arguments\": {\n      \"collection\": \"sessions\",\n      \"filter\": {},\n      \"projection\": {\"sessionId\": 1, \"userId\": 1, \"startedAt\": 1},\n      \"sort\": {\"startedAt\": -1},\n      \"limit\": 10\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Store Find Interactions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"store_find\",\n    \"arguments\": {\n      \"collection\": \"interactions\",\n      \"filter\": {},\n      \"projection\": {\"sessionId\": 1, \"timestamp\": 1, \"type\": 1},\n      \"sort\": {\"timestamp\": -1},\n      \"limit\": 20\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Store Find Events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"store_find\",\n    \"arguments\": {\n      \"collection\": \"events\",\n      \"filter\": {\"processed\": false},\n      \"projection\": {\"type\": 1, \"ts\": 1, \"processed\": 1},\n      \"sort\": {\"ts\": -1},\n      \"limit\": 10\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Store Aggregate - Session Count by User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"store_aggregate\",\n    \"arguments\": {\n      \"collection\": \"sessions\",\n      \"pipeline\": [\n        {\"$group\": {\"_id\": \"$userId\", \"sessionCount\": {\"$sum\": 1}}},\n        {\"$sort\": {\"sessionCount\": -1}},\n        {\"$limit\": 10}\n      ]\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Store Aggregate - Event Types Count",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"store_aggregate\",\n    \"arguments\": {\n      \"collection\": \"events\",\n      \"pipeline\": [\n        {\"$group\": {\"_id\": \"$type\", \"count\": {\"$sum\": 1}}},\n        {\"$sort\": {\"count\": -1}}\n      ]\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Session Append Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"session_appendEvent\",\n    \"arguments\": {\n      \"sessionId\": \"session-123\",\n      \"event\": {\n        \"type\": \"message\",\n        \"timestamp\": \"{{$isoTimestamp}}\",\n        \"data\": {\n          \"content\": \"Hello, world!\",\n          \"sender\": \"user\"\n        }\n      }\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Capabilities",
+      "item": [
+        {
+          "name": "List Capabilities",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"capabilities_list\",\n    \"arguments\": {}\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mcp/message?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["mcp", "message"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "{{sessionId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

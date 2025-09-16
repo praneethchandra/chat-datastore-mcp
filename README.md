@@ -1,5 +1,11 @@
 # Chat Datastore MCP Server
 
+[![Java](https://img.shields.io/badge/Java-17+-orange.svg)](https://openjdk.java.net/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.3-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Spring AI](https://img.shields.io/badge/Spring%20AI-1.1.0--M1-blue.svg)](https://spring.io/projects/spring-ai)
+[![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://docs.docker.com/compose/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ## Application Overview
 
 The Chat Datastore MCP Server is a Spring Boot application that implements the Model Context Protocol (MCP) to provide chat session management and key-value storage capabilities. It serves as a backend service for chat applications, offering persistent storage for sessions, interactions, and cached data with real-time event processing.
@@ -10,6 +16,15 @@ The Chat Datastore MCP Server is a Spring Boot application that implements the M
 - **Event-Driven Architecture**: Implements outbox pattern for reliable event processing
 - **Observability**: Integrated with OpenTelemetry for monitoring and tracing
 - **RESTful API**: WebFlux-based reactive endpoints with Server-Sent Events (SSE) support
+- **Production Ready**: Multi-stage Docker builds with OpenTelemetry instrumentation
+
+### Technology Stack
+- **Runtime**: Java 17, Spring Boot 3.3.3, Spring WebFlux
+- **MCP Integration**: Spring AI MCP Server 1.1.0-M1
+- **Storage**: MongoDB 6.x (persistent), Redis 7.x (cache)
+- **Observability**: OpenTelemetry, ClickHouse
+- **Build**: Maven 3.9+, Docker & Docker Compose
+- **Development**: Lombok, Spring Boot DevTools
 
 ## System Architecture
 
@@ -615,5 +630,316 @@ Create a Postman environment with:
 4. **KV Operations** → Test Redis caching functionality
 5. **Store Operations** → Test MongoDB query capabilities
 6. **Event Processing** → Verify outbox pattern is working
+
+## API Documentation
+
+### MCP Tools Reference
+
+#### Key-Value Operations
+
+| Tool | Description | Parameters | Returns |
+|------|-------------|------------|---------|
+| `kv_get` | Get value for a key | `key: string` | `{key, value}` |
+| `kv_set` | Set key-value with TTL | `key: string, value: string, ttlSec?: number, sessionId?: string, interactionId?: string` | `{ok: true}` |
+| `kv_mget` | Get multiple keys | `keys: string[]` | `{key1: value1, key2: value2, ...}` |
+| `kv_del` | Delete a key | `key: string` | `{ok: true}` |
+| `kv_ttl` | Get TTL for key | `key: string` | `{key, ttlSec}` |
+| `kv_scan` | Scan keys by prefix | `prefix: string, limit?: number` | `{keys: string[]}` |
+
+#### Store Operations
+
+| Tool | Description | Parameters | Returns |
+|------|-------------|------------|---------|
+| `store_find` | Query MongoDB collection | `collection: string, filter: object, projection?: object, sort?: object, limit?: number` | `Document[]` |
+| `store_aggregate` | Run aggregation pipeline | `collection: string, pipeline: object[]` | `Document[]` |
+| `session_appendEvent` | Append event to session | `sessionId: string, event: object` | `{ok: true}` |
+
+#### Capabilities
+
+| Tool | Description | Parameters | Returns |
+|------|-------------|------------|---------|
+| `list_capabilities` | List server capabilities | None | `{tools: Tool[], resources: Resource[]}` |
+
+### Configuration Reference
+
+#### Application Properties
+
+```yaml
+# Server Configuration
+server:
+  port: 8080
+
+# Spring Data Configuration
+spring:
+  data:
+    mongodb:
+      uri: mongodb://mongo:27017/chatdb
+  redis:
+    host: redis
+    port: 6379
+
+# MCP Server Configuration
+  ai:
+    mcp:
+      server:
+        enabled: true
+        type: ASYNC
+        name: chat-datastore
+        version: 1.0.0
+        sse-endpoint: /sse
+        sse-message-endpoint: /mcp/message
+        capabilities:
+          tool: true
+          resource: false
+          prompt: false
+          completion: false
+        stdio: false
+
+# Application Policies
+app:
+  policies:
+    allowedCollections:
+      - sessions
+      - interactions
+      - kvshadow
+      - events
+```
+
+#### Environment Variables
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `SPRING_DATA_MONGODB_URI` | MongoDB connection string | `mongodb://mongo:27017/chatdb` | Yes |
+| `SPRING_REDIS_HOST` | Redis host | `redis` | Yes |
+| `SPRING_REDIS_PORT` | Redis port | `6379` | Yes |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry endpoint | `http://otel-collector:4317` | No |
+| `OTEL_SERVICE_NAME` | Service name for tracing | `chat-datastore` | No |
+| `JAVA_OPTS` | JVM options | `""` | No |
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. Application Won't Start
+
+**Symptoms**: Application fails to start with connection errors
+
+**Solutions**:
+```bash
+# Check if infrastructure services are running
+docker-compose ps
+
+# Restart infrastructure services
+docker-compose down
+docker-compose up -d redis mongo clickhouse otel-collector
+
+# Check logs
+docker-compose logs app
+```
+
+#### 2. Redis Connection Issues
+
+**Symptoms**: `RedisConnectionException` in logs
+
+**Solutions**:
+```bash
+# Test Redis connectivity
+docker exec -it redis redis-cli ping
+
+# Check Redis logs
+docker logs redis
+
+# Verify Redis configuration
+docker exec -it redis redis-cli CONFIG GET "*"
+```
+
+#### 3. MongoDB Connection Issues
+
+**Symptoms**: `MongoSocketException` or `MongoTimeoutException`
+
+**Solutions**:
+```bash
+# Test MongoDB connectivity
+docker exec -it mongo mongosh --eval "db.adminCommand('ping')"
+
+# Check MongoDB logs
+docker logs mongo
+
+# Verify database exists
+docker exec -it mongo mongosh chatdb --eval "db.stats()"
+```
+
+#### 4. MCP Tools Not Working
+
+**Symptoms**: Tools return errors or are not discoverable
+
+**Solutions**:
+```bash
+# Check MCP configuration
+curl -X POST http://localhost:8080/mcp/message \
+  -H "Content-Type: application/json" \
+  -d '{"method": "tools/list", "params": {}}'
+
+# Verify application logs
+docker logs chat-datastore-app
+
+# Check allowed collections
+curl http://localhost:8080/actuator/configprops
+```
+
+#### 5. Outbox Events Not Processing
+
+**Symptoms**: Events remain unprocessed in the database
+
+**Solutions**:
+```bash
+# Check outbox events
+docker exec -it mongo mongosh chatdb --eval "db.events.find({processed: false}).count()"
+
+# Verify scheduler is running
+docker logs chat-datastore-app | grep "OutboxProjector"
+
+# Manual trigger (if needed)
+curl -X POST http://localhost:8080/actuator/scheduledtasks
+```
+
+### Performance Tuning
+
+#### JVM Options
+```bash
+# For production deployment
+export JAVA_OPTS="-Xms512m -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+```
+
+#### Redis Configuration
+```bash
+# Optimize Redis for caching
+docker exec -it redis redis-cli CONFIG SET maxmemory 256mb
+docker exec -it redis redis-cli CONFIG SET maxmemory-policy allkeys-lru
+```
+
+#### MongoDB Configuration
+```bash
+# Create indexes for better performance
+docker exec -it mongo mongosh chatdb --eval "
+  db.sessions.createIndex({sessionId: 1});
+  db.interactions.createIndex({sessionId: 1, timestamp: -1});
+  db.events.createIndex({processed: 1, ts: 1});
+  db.kvshadow.createIndex({key: 1});
+"
+```
+
+### Monitoring and Observability
+
+#### Health Checks
+```bash
+# Application health
+curl http://localhost:8080/actuator/health
+
+# Detailed health with components
+curl http://localhost:8080/actuator/health/details
+```
+
+#### Metrics
+```bash
+# Application metrics
+curl http://localhost:8080/actuator/metrics
+
+# Specific metric
+curl http://localhost:8080/actuator/metrics/jvm.memory.used
+```
+
+#### Tracing
+- Access ClickHouse UI: http://localhost:8123
+- Query traces: `SELECT * FROM otel.otel_traces LIMIT 10`
+- Query metrics: `SELECT * FROM otel.otel_metrics LIMIT 10`
+
+### Development Tips
+
+#### Hot Reload
+```bash
+# Enable Spring Boot DevTools for hot reload
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+#### Debug Mode
+```bash
+# Run with debug enabled
+mvn spring-boot:run -Dspring-boot.run.jvmArguments="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"
+```
+
+#### Testing with Different Profiles
+```bash
+# Test profile
+mvn spring-boot:run -Dspring-boot.run.profiles=test
+
+# Local profile with external services
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+## Contributing
+
+### Development Workflow
+
+1. **Fork and Clone**
+   ```bash
+   git clone https://github.com/your-username/chat-datastore-mcp.git
+   cd chat-datastore-mcp
+   ```
+
+2. **Create Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+3. **Development Setup**
+   ```bash
+   # Start infrastructure
+   cd deploy && docker-compose up -d redis mongo clickhouse otel-collector
+   
+   # Run application
+   mvn spring-boot:run -Dspring-boot.run.profiles=local
+   ```
+
+4. **Run Tests**
+   ```bash
+   mvn test
+   mvn integration-test
+   ```
+
+5. **Code Quality**
+   ```bash
+   # Format code
+   mvn spring-javaformat:apply
+   
+   # Check style
+   mvn checkstyle:check
+   ```
+
+6. **Submit PR**
+   ```bash
+   git add .
+   git commit -m "feat: add your feature description"
+   git push origin feature/your-feature-name
+   ```
+
+### Code Standards
+
+- **Java**: Follow Google Java Style Guide
+- **Commit Messages**: Use Conventional Commits format
+- **Testing**: Maintain >80% code coverage
+- **Documentation**: Update README for new features
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/praneethchandra/chat-datastore-mcp/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/praneethchandra/chat-datastore-mcp/discussions)
+- **Documentation**: This README and inline code comments
+
+---
 
 The application provides comprehensive chat session management with reliable event processing, making it suitable for production chat applications requiring persistent storage and caching capabilities.
