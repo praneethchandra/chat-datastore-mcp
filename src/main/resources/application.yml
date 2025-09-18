@@ -33,3 +33,6 @@ app:
       - interactions
       - kvshadow
       - events
+  sync:
+    async-timeout-ms: 2000
+    max-async-threads: 10

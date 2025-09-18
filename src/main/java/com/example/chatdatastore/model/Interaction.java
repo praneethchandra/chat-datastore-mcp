@@ -18,6 +18,18 @@ public class Interaction {
     private String sessionId;
     private String role;
     private String content;
+    private Instant timestamp;
+    private String request;
+    private String response;
+    private Map<String, Object> context;
+    private Map<String, Object> metadata;
+    private Long processingTimeMs;
+    private Map<String, Object> toolCalls;
+    
+    // Legacy field for backward compatibility
     private Instant ts;
-    private Map<String,Object> toolCalls;
+    
+    // Evaluation fields
+    private Map<String, Object> evaluationData;
+    private Instant evaluatedAt;
 }

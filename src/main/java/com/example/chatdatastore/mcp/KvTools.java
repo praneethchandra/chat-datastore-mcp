@@ -3,6 +3,7 @@ package com.example.chatdatastore.mcp;
 import com.example.chatdatastore.kv.KvClient;
 import com.example.chatdatastore.model.OutboxEvent;
 import com.example.chatdatastore.repo.OutboxRepo;
+import com.example.chatdatastore.service.HybridSyncService;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
 
@@ -15,10 +16,12 @@ public class KvTools {
 
     private final KvClient kvClient;
     private final OutboxRepo outboxRepo;
+    private final HybridSyncService hybridSyncService;
 
-    public KvTools(KvClient kvClient, OutboxRepo outboxRepo) {
+    public KvTools(KvClient kvClient, OutboxRepo outboxRepo, HybridSyncService hybridSyncService) {
         this.kvClient = kvClient;
         this.outboxRepo = outboxRepo;
+        this.hybridSyncService = hybridSyncService;
     }
 
     @Tool(description = "Get value for a key from the KV cache")
@@ -35,33 +38,27 @@ public class KvTools {
     public Map<String,Object> kv_set(String key, String value, Integer ttlSec, String sessionId, String interactionId) {
         Duration ttl = (ttlSec == null || ttlSec <= 0) ? null : Duration.ofSeconds(ttlSec);
         kvClient.set(key, value, ttl);
-        Map<String,Object> payload = new HashMap<>();
-        payload.put("key", key);
-        payload.put("value", value);
-        payload.put("ttlSec", ttlSec);
-        if (sessionId != null) payload.put("sessionId", sessionId);
-        if (interactionId != null) payload.put("interactionId", interactionId);
-        OutboxEvent evt = OutboxEvent.builder()
-                .type("KVMutated")
-                .ts(Instant.now())
-                .payload(payload)
-                .processed(false)
-                .build();
-        outboxRepo.save(evt);
-        return Map.of("ok", true);
+        
+        // Use hybrid sync service for synchronization
+        HybridSyncService.SyncResult syncResult = hybridSyncService.adaptiveSync(key, value, ttlSec, sessionId, interactionId);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("ok", true);
+        result.put("syncResult", syncResult.toMap());
+        return result;
     }
 
     @Tool(description = "Delete a key from the KV cache")
     public Map<String,Object> kv_del(String key) {
         kvClient.del(key);
-        OutboxEvent evt = OutboxEvent.builder()
-                .type("KVMutated")
-                .ts(Instant.now())
-                .payload(Map.of("key", key, "value", null))
-                .processed(false)
-                .build();
-        outboxRepo.save(evt);
-        return Map.of("ok", true);
+        
+        // Use hybrid sync service for delete synchronization
+        HybridSyncService.SyncResult syncResult = hybridSyncService.syncKvDelete(key);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("ok", true);
+        result.put("syncResult", syncResult.toMap());
+        return result;
     }
 
     @Tool(description = "Get TTL for a key in seconds, if any")

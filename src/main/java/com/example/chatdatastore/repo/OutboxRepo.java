@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface OutboxRepo extends MongoRepository<OutboxEvent, String> {
     List<OutboxEvent> findTop50ByProcessedFalseOrderByTsAsc();
+    long countByProcessedFalse();
 }

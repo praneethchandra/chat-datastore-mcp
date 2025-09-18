@@ -17,5 +17,14 @@ public class Session {
     private String sessionId;
     private String userId;
     private Instant startedAt;
-    private Map<String,Object> state;
+    private Instant lastActivityAt;
+    private String status;
+    private Map<String, Object> context;
+    private Map<String, Object> metadata;
+    private Integer interactionCount;
+    private Map<String, Object> state;
+    
+    // Evaluation fields
+    private Map<String, Object> evaluationData;
+    private Instant evaluatedAt;
 }

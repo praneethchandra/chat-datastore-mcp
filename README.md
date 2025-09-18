@@ -13,7 +13,9 @@ The Chat Datastore MCP Server is a Spring Boot application that implements the M
 ### Key Features
 - **MCP Server Implementation**: Provides tools for chat session management and key-value operations
 - **Multi-Storage Architecture**: Uses MongoDB for persistent storage and Redis for caching
+- **Hybrid Synchronization**: Async-first sync with event-based fallback for peak hour performance
 - **Event-Driven Architecture**: Implements outbox pattern for reliable event processing
+- **Cache Sync Verification**: Comprehensive tools for monitoring cache consistency
 - **Observability**: Integrated with OpenTelemetry for monitoring and tracing
 - **RESTful API**: WebFlux-based reactive endpoints with Server-Sent Events (SSE) support
 - **Production Ready**: Multi-stage Docker builds with OpenTelemetry instrumentation
@@ -42,11 +44,15 @@ graph TB
         subgraph "MCP Tools Layer"
             KvTools[KvTools<br/>- kv_get<br/>- kv_set<br/>- kv_mget<br/>- kv_scan<br/>- kv_del<br/>- kv_ttl]
             StoreTools[StoreTools<br/>- store_find<br/>- store_aggregate<br/>- session_appendEvent]
+            SyncTools[SyncVerificationTools<br/>- cache_sync_verify<br/>- cache_sync_key_verify<br/>- cache_sync_repair]
+            HybridTools[HybridSyncTools<br/>- hybrid_sync_stats<br/>- hybrid_sync_load_check<br/>- hybrid_sync_manual]
             CapTools[CapabilitiesTools<br/>- list_capabilities]
         end
         
         subgraph "Service Layer"
             OutboxProjector[OutboxProjector<br/>- Event Processing<br/>- Scheduled Tasks]
+            HybridSync[HybridSyncService<br/>- Async Thread Sync<br/>- Event Fallback<br/>- Load Detection]
+            CacheSync[CacheSyncVerificationService<br/>- Sync Verification<br/>- Health Monitoring]
             KvClient[KvClient Interface]
             StoreClient[StoreClient Interface]
         end
@@ -82,18 +88,34 @@ graph TB
     %% Controller to Tools
     SSE --> KvTools
     SSE --> StoreTools
+    SSE --> SyncTools
+    SSE --> HybridTools
     SSE --> CapTools
     MCP --> KvTools
     MCP --> StoreTools
+    MCP --> SyncTools
+    MCP --> HybridTools
     MCP --> CapTools
     MSG --> KvTools
     MSG --> StoreTools
+    MSG --> SyncTools
+    MSG --> HybridTools
     MSG --> CapTools
     
     %% Tools to Services
+    KvTools --> HybridSync
     KvTools --> KvClient
-    KvTools --> OutboxRepo
     StoreTools --> StoreClient
+    SyncTools --> CacheSync
+    HybridTools --> HybridSync
+    
+    %% Service dependencies
+    HybridSync --> KvClient
+    HybridSync --> KVShadowRepo
+    HybridSync --> OutboxRepo
+    CacheSync --> KvClient
+    CacheSync --> KVShadowRepo
+    CacheSync --> OutboxRepo
     
     %% Service implementations
     KvClient --> RedisKvClient
@@ -640,11 +662,30 @@ Create a Postman environment with:
 | Tool | Description | Parameters | Returns |
 |------|-------------|------------|---------|
 | `kv_get` | Get value for a key | `key: string` | `{key, value}` |
-| `kv_set` | Set key-value with TTL | `key: string, value: string, ttlSec?: number, sessionId?: string, interactionId?: string` | `{ok: true}` |
+| `kv_set` | Set key-value with TTL (uses hybrid sync) | `key: string, value: string, ttlSec?: number, sessionId?: string, interactionId?: string` | `{ok: true, syncResult: {...}}` |
 | `kv_mget` | Get multiple keys | `keys: string[]` | `{key1: value1, key2: value2, ...}` |
-| `kv_del` | Delete a key | `key: string` | `{ok: true}` |
+| `kv_del` | Delete a key (uses hybrid sync) | `key: string` | `{ok: true, syncResult: {...}}` |
 | `kv_ttl` | Get TTL for key | `key: string` | `{key, ttlSec}` |
 | `kv_scan` | Scan keys by prefix | `prefix: string, limit?: number` | `{keys: string[]}` |
+
+#### Cache Synchronization Operations
+
+| Tool | Description | Parameters | Returns |
+|------|-------------|------------|---------|
+| `cache_sync_verify` | Comprehensive sync verification | None | `{unprocessedOutboxEvents, cacheVsShadowSync, staleEntriesCheck, overallSyncHealth}` |
+| `cache_sync_key_verify` | Verify specific key sync status | `key: string` | `{key, cacheValue, shadowValue, inSync, lastWriteAt, ...}` |
+| `cache_sync_repair` | Force sync repair for a key | `key: string` | `{action, success, ...}` |
+| `cache_sync_ttl_info` | Get TTL info for keys | `keyPrefix: string, limit?: number` | `{ttlInfo: {...}, scannedKeys: number}` |
+
+#### Hybrid Synchronization Operations
+
+| Tool | Description | Parameters | Returns |
+|------|-------------|------------|---------|
+| `hybrid_sync_stats` | Get sync statistics and thread pool status | None | `{asyncThreads: {...}, configuration: {...}, outboxEvents: {...}}` |
+| `hybrid_sync_load_check` | Check if system is under high load | None | `{isHighLoad: boolean, recommendation: string}` |
+| `hybrid_sync_manual` | Manually trigger hybrid sync | `key: string, value: string, ttlSec?: number, sessionId?: string, interactionId?: string` | `{success: boolean, method: string, message: string, timestamp: string}` |
+| `hybrid_sync_delete` | Manually trigger hybrid delete sync | `key: string` | `{success: boolean, method: string, message: string, timestamp: string}` |
+| `hybrid_sync_adaptive` | Use adaptive sync strategy | `key: string, value: string, ttlSec?: number, sessionId?: string, interactionId?: string` | `{success: boolean, method: string, message: string, timestamp: string}` |
 
 #### Store Operations
 
@@ -703,6 +744,9 @@ app:
       - interactions
       - kvshadow
       - events
+  sync:
+    async-timeout-ms: 2000      # Timeout for async sync attempts
+    max-async-threads: 10       # Maximum async thread pool size
 ```
 
 #### Environment Variables
